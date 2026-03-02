@@ -1,36 +1,207 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Evalify 🎓
 
-## Getting Started
+SaaS de provas gamificadas com IA para professores e alunos.
 
-First, run the development server:
+## O que é
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Professores criam provas no painel. A IA gera automaticamente um mini-site gamificado com tema visual, cores e mensagens personalizadas. O sistema gera um link único e QR code para os alunos acessarem. O aluno faz a prova, recebe o score em tempo real e o resultado fica salvo para o professor visualizar e imprimir.
+
+---
+
+## Stack
+
+| Camada | Tecnologia |
+|--------|-----------|
+| Framework | Next.js 16 (App Router) |
+| Banco de dados | PostgreSQL + Prisma ORM v7 |
+| Autenticação | NextAuth.js v4 (JWT) |
+| IA | Claude Haiku (Anthropic SDK) |
+| Estilo | Tailwind CSS v4 |
+| Linguagem | TypeScript |
+
+---
+
+## Estrutura do projeto
+
+```
+evalify/
+├── app/
+│   ├── api/
+│   │   ├── auth/
+│   │   │   ├── [...nextauth]/   # Handler NextAuth
+│   │   │   └── register/        # Cadastro de professor
+│   │   ├── exams/
+│   │   │   ├── route.ts         # GET listar / POST criar prova
+│   │   │   └── [id]/
+│   │   │       ├── route.ts           # GET / PUT / DELETE prova
+│   │   │       ├── questions/route.ts # POST adicionar questão
+│   │   │       ├── publish/route.ts   # POST publicar + gerar slug
+│   │   │       ├── generate-theme/    # POST gerar tema com IA
+│   │   │       └── results/route.ts   # GET resultados da prova
+│   │   ├── questions/[id]/      # PUT / DELETE questão
+│   │   └── public/
+│   │       ├── exam/[slug]/
+│   │       │   ├── route.ts     # GET dados da prova (sem gabarito)
+│   │       │   └── attempt/     # POST iniciar tentativa
+│   │       └── attempt/[id]/
+│   │           └── submit/      # POST enviar respostas + calcular score
+│   ├── dashboard/               # Painel do professor (autenticado)
+│   │   ├── page.tsx             # Lista de provas
+│   │   └── exams/
+│   │       ├── new/             # Criar nova prova
+│   │       └── [id]/
+│   │           ├── edit/        # Editor de questões + publicação
+│   │           └── results/     # Resultados + impressão
+│   ├── exam/[slug]/             # Fluxo público do aluno
+│   │   ├── page.tsx             # Tela de entrada gamificada
+│   │   ├── take/                # Interface de questões + timer
+│   │   └── result/              # Tela de resultado + score
+│   ├── login/                   # Página de login
+│   └── register/                # Página de cadastro
+├── components/
+│   ├── ExamEditor.tsx           # Editor completo de questões
+│   ├── ExamEntrance.tsx         # Tela de entrada do aluno
+│   ├── ExamTaker.tsx            # Interface de responder questões
+│   ├── ExamStatusBadge.tsx      # Badge de status da prova
+│   ├── DeleteExamButton.tsx     # Botão de exclusão com confirmação
+│   ├── SignOutButton.tsx        # Botão de logout
+│   └── Providers.tsx            # SessionProvider do NextAuth
+├── lib/
+│   ├── prisma.ts                # Singleton do PrismaClient (adapter pg)
+│   └── auth.ts                  # Configuração do NextAuth
+├── prisma/
+│   └── schema.prisma            # Modelos do banco de dados
+└── types/
+    └── next-auth.d.ts           # Extensão de tipos da sessão
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Banco de dados
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Modelos
 
-## Learn More
+- **Teacher** — professores cadastrados (email + senha hash bcrypt)
+- **Exam** — provas com slug único, tema IA em JSON, status DRAFT/PUBLISHED/CLOSED
+- **Question** — questões com ordem e pontuação configurável
+- **Option** — alternativas da questão (isCorrect nunca é exposto ao aluno)
+- **Attempt** — tentativa do aluno com score, maxScore e percentual calculados
+- **Answer** — resposta individual por questão com isCorrect e pontos ganhos
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Configuração local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Pré-requisitos
 
-## Deploy on Vercel
+- Node.js 18+
+- PostgreSQL 13+
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Instalação
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# 1. Instalar dependências
+npm install
+
+# 2. Configurar variáveis de ambiente
+# Crie o arquivo .env com o conteúdo da seção abaixo
+
+# 3. Criar banco de dados no PostgreSQL
+psql -U postgres -c "CREATE DATABASE evalify;"
+
+# 4. Rodar migrações
+npx prisma migrate dev
+
+# 5. Iniciar servidor de desenvolvimento
+npm run dev
+```
+
+### Variáveis de ambiente (.env)
+
+```env
+DATABASE_URL="postgresql://postgres:SENHA@localhost:5432/evalify"
+NEXTAUTH_SECRET="string-secreta-forte-32-chars"
+NEXTAUTH_URL="http://localhost:3000"
+ANTHROPIC_API_KEY="sk-ant-..."   # Opcional — usa tema padrão se ausente
+```
+
+---
+
+## Fluxo do Professor
+
+1. Cadastro em `/register` → Login em `/login`
+2. Dashboard em `/dashboard` — lista todas as provas
+3. Criar prova em `/dashboard/exams/new` — título, descrição, tempo limite
+4. Editor de questões — enunciado, até 4 alternativas, marcar correta, pontos
+5. **Gerar tema com IA** — Claude analisa a prova e retorna tema visual (cor, emoji, mensagens)
+6. **Publicar** — gera slug único (nanoid 10 chars) e exibe link + QR code
+7. Compartilhar link ou QR code com os alunos
+8. Ver resultados em `/dashboard/exams/[id]/results` — tabela com score e aprovação
+9. Imprimir relatório em `/dashboard/exams/[id]/results/print`
+
+## Fluxo do Aluno
+
+1. Acessa `/exam/[slug]` via link ou QR code
+2. Tela gamificada com tema da IA — insere nome e número/turma
+3. Responde questões uma por uma com timer (se configurado)
+4. Tela de confirmação antes de enviar
+5. Score calculado no servidor — gabarito nunca exposto ao cliente
+6. Tela de resultado com pontuação, percentual e mensagem personalizada
+
+---
+
+## Lógica de score
+
+```
+pontos_questão = isCorrect ? question.points : 0
+score_final    = SUM(pontos por questão)
+percentual     = (score_final / max_score) * 100
+aprovado       = percentual >= 60%
+```
+
+O cálculo acontece inteiramente no servidor (`POST /api/public/attempt/[id]/submit`).
+
+---
+
+## Geração de link único
+
+```ts
+import { nanoid } from 'nanoid'
+const slug = nanoid(10)  // ex: "V1StGXR8_Z"
+// ~1 bilhão de combinações, URL-safe
+```
+
+URL pública: `http://seudominio.com/exam/{slug}`
+
+---
+
+## IA — Geração de tema
+
+O endpoint `POST /api/exams/[id]/generate-theme` envia para o Claude Haiku:
+- Título e descrição da prova
+- Primeiras 5 questões como contexto
+
+O modelo retorna JSON com:
+```json
+{
+  "themeName": "nome criativo",
+  "color": "#hexcolor",
+  "emoji": "🚀",
+  "welcomeMsg": "mensagem de boas-vindas",
+  "congratsMsg": "mensagem de parabéns",
+  "encourageMsg": "mensagem de encorajamento"
+}
+```
+
+Se a `ANTHROPIC_API_KEY` não estiver configurada, usa valores padrão automaticamente.
+
+---
+
+## Deploy (produção)
+
+Recomendado: **Vercel** (frontend + API) + **Supabase** (PostgreSQL)
+
+1. Criar projeto no Vercel e conectar repositório
+2. Criar banco no Supabase → copiar connection string
+3. Configurar variáveis de ambiente no Vercel
+4. Rodar `npx prisma migrate deploy` no CI/CD
