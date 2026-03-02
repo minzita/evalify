@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Teacher {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  exams        Exam[]
+}
+
+model Exam {
+  id           String     @id @default(uuid())
+  teacherId    String
+  teacher      Teacher    @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  slug         String?    @unique
+  timeLimitMin Int?
+  aiTheme      Json?
+  status       ExamStatus @default(DRAFT)
+  createdAt    DateTime   @default(now())
+  publishedAt  DateTime?
+  questions    Question[]
+  attempts     Attempt[]
+}
+
+enum ExamStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+model Question {
+  id      String   @id @default(uuid())
+  examId  String
+  exam    Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  order   Int
+  content String
+  points  Int      @default(1)
+  options Option[]
+  answers Answer[]
+}
+
+model Option {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  content    String
+  isCorrect  Boolean  @default(false)
+  answers    Answer[]
+}
+
+model Attempt {
+  id          String        @id @default(uuid())
+  examId      String
+  exam        Exam          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  studentName String
+  studentRef  String?
+  score       Int           @default(0)
+  maxScore    Int
+  percentage  Float         @default(0)
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?
+  status      AttemptStatus @default(IN_PROGRESS)
+  answers     Answer[]
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Answer {
+  id               String   @id @default(uuid())
+  attemptId        String
+  attempt          Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question @relation(fields: [questionId], references: [id])
+  selectedOptionId String?
+  selectedOption   Option?  @relation(fields: [selectedOptionId], references: [id])
+  isCorrect        Boolean
+  pointsEarned     Int
+}
