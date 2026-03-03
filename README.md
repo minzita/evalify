@@ -33,7 +33,7 @@ evalify/
 │   │   ├── exams/
 │   │   │   ├── route.ts         # GET listar / POST criar prova
 │   │   │   └── [id]/
-│   │   │       ├── route.ts           # GET / PUT / DELETE prova
+│   │   │       ├── route.ts           # GET / PUT / PATCH (fechar) / DELETE prova
 │   │   │       ├── questions/route.ts # POST adicionar questão
 │   │   │       ├── publish/route.ts   # POST publicar + gerar slug
 │   │   │       ├── generate-theme/    # POST gerar tema com IA
@@ -59,11 +59,12 @@ evalify/
 │   ├── login/                   # Página de login
 │   └── register/                # Página de cadastro
 ├── components/
-│   ├── ExamEditor.tsx           # Editor completo de questões
-│   ├── ExamEntrance.tsx         # Tela de entrada do aluno
-│   ├── ExamTaker.tsx            # Interface de responder questões
-│   ├── ExamStatusBadge.tsx      # Badge de status da prova
-│   ├── DeleteExamButton.tsx     # Botão de exclusão com confirmação
+│   ├── ExamEditor.tsx           # Editor completo (questões + tema IA + publicação)
+│   ├── DashboardExamList.tsx    # Lista de provas com Finalizar/Excluir (client)
+│   ├── ExamEntrance.tsx         # Tela de entrada do aluno (tema gamificado)
+│   ├── ExamTaker.tsx            # Interface de responder questões (tema gamificado)
+│   ├── ExamStatusBadge.tsx      # Badge de status (DRAFT/PUBLISHED/CLOSED)
+│   ├── DeleteExamButton.tsx     # Botão de exclusão legado (não usado no dashboard)
 │   ├── SignOutButton.tsx        # Botão de logout
 │   └── Providers.tsx            # SessionProvider do NextAuth
 ├── lib/
@@ -121,7 +122,7 @@ npm run dev
 ```env
 DATABASE_URL="postgresql://postgres:SENHA@localhost:5432/evalify"
 NEXTAUTH_SECRET="string-secreta-forte-32-chars"
-NEXTAUTH_URL="http://localhost:3000"
+NEXTAUTH_URL="http://localhost:3001"
 ANTHROPIC_API_KEY="sk-ant-..."   # Opcional — usa tema padrão se ausente
 ```
 
@@ -130,14 +131,16 @@ ANTHROPIC_API_KEY="sk-ant-..."   # Opcional — usa tema padrão se ausente
 ## Fluxo do Professor
 
 1. Cadastro em `/register` → Login em `/login`
-2. Dashboard em `/dashboard` — lista todas as provas
+2. Dashboard em `/dashboard` — lista todas as provas com badges de status
 3. Criar prova em `/dashboard/exams/new` — título, descrição, tempo limite
-4. Editor de questões — enunciado, até 4 alternativas, marcar correta, pontos
-5. **Gerar tema com IA** — Claude analisa a prova e retorna tema visual (cor, emoji, mensagens)
-6. **Publicar** — gera slug único (nanoid 10 chars) e exibe link + QR code
-7. Compartilhar link ou QR code com os alunos
-8. Ver resultados em `/dashboard/exams/[id]/results` — tabela com score e aprovação
-9. Imprimir relatório em `/dashboard/exams/[id]/results/print`
+4. Editor de questões — adicionar, editar inline e excluir questões e alternativas
+5. **Gerar tema com IA** — Claude Haiku analisa a prova e retorna tema visual rico (cores, gradiente, padrão de fundo, emoji, ícones, mensagens)
+6. **Publicar** — gera slug único (nanoid 10 chars) e exibe link copiável
+7. Compartilhar link com os alunos
+8. **Finalizar prova** — muda status para CLOSED; alunos não conseguem mais responder
+9. Ver resultados em `/dashboard/exams/[id]/results` — tabela com score e aprovação
+10. Imprimir relatório em `/dashboard/exams/[id]/results/print`
+11. **Excluir prova** — remove permanentemente (qualquer status, com confirmação)
 
 ## Fluxo do Aluno
 
@@ -184,14 +187,20 @@ O endpoint `POST /api/exams/[id]/generate-theme` envia para o Claude Haiku:
 O modelo retorna JSON com:
 ```json
 {
-  "themeName": "nome criativo",
-  "color": "#hexcolor",
+  "themeName": "nome criativo do tema",
+  "color": "#hexcolor primário",
+  "colorSecondary": "#hexcolor secundário",
   "emoji": "🚀",
-  "welcomeMsg": "mensagem de boas-vindas",
-  "congratsMsg": "mensagem de parabéns",
-  "encourageMsg": "mensagem de encorajamento"
+  "icons": ["🌟", "📚", "🎯"],
+  "style": "moderno | infantil | futurista | minimalista | natureza | esportivo | classico",
+  "bgPattern": "pontos | ondas | geometrico | solido",
+  "welcomeMsg": "mensagem de boas-vindas (máx 80 chars)",
+  "congratsMsg": "mensagem de parabéns (máx 80 chars)",
+  "encourageMsg": "mensagem de encorajamento (máx 80 chars)"
 }
 ```
+
+O tema é aplicado como gradiente no cabeçalho e padrão de fundo nas páginas do aluno (entrada, questões e resultado).
 
 Se a `ANTHROPIC_API_KEY` não estiver configurada, usa valores padrão automaticamente.
 
