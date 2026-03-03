@@ -1,7 +1,7 @@
 const statusConfig = {
   DRAFT: { label: "Rascunho", className: "bg-gray-100 text-gray-600" },
   PUBLISHED: { label: "Publicada", className: "bg-green-100 text-green-700" },
-  CLOSED: { label: "Encerrada", className: "bg-red-100 text-red-600" },
+  CLOSED: { label: "Encerrada", className: "bg-gray-100 text-gray-500" },
 };
 
 export function ExamStatusBadge({ status }: { status: "DRAFT" | "PUBLISHED" | "CLOSED" }) {

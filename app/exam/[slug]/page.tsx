@@ -12,7 +12,7 @@ export default async function ExamLandingPage({ params }: { params: Promise<{ sl
 
   if (!exam) notFound();
 
-  const theme = exam.aiTheme as Record<string, string> | null;
+  const theme = exam.aiTheme as Record<string, string | string[]> | null;
 
   return (
     <ExamEntrance

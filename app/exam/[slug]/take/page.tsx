@@ -34,7 +34,7 @@ export default async function ExamTakePage({
 
   if (!attempt) notFound();
 
-  const theme = exam.aiTheme as Record<string, string> | null;
+  const theme = exam.aiTheme as Record<string, string | string[]> | null;
 
   return (
     <ExamTaker

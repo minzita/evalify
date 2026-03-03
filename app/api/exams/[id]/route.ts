@@ -47,17 +47,39 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   return NextResponse.json(updated);
 }
 
-export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
 
   const { id } = await params;
   const exam = await getExamForTeacher(id, session.user.id);
   if (!exam) return NextResponse.json({ error: "Prova não encontrada" }, { status: 404 });
-  if (exam.status !== "DRAFT") {
-    return NextResponse.json({ error: "Somente provas em rascunho podem ser excluídas" }, { status: 400 });
+  if (exam.status !== "PUBLISHED") {
+    return NextResponse.json({ error: "Somente provas publicadas podem ser encerradas" }, { status: 400 });
   }
 
-  await prisma.exam.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
+  const updated = await prisma.exam.update({ where: { id }, data: { status: "CLOSED" } });
+  return NextResponse.json(updated);
+}
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+
+  const { id } = await params;
+  try {
+    const exam = await getExamForTeacher(id, session.user.id);
+    if (!exam) return NextResponse.json({ error: "Prova não encontrada" }, { status: 404 });
+
+    // Respostas referenciam Questões sem cascade, então devem ser deletadas antes
+    await prisma.$transaction([
+      prisma.answer.deleteMany({ where: { attempt: { examId: id } } }),
+      prisma.exam.delete({ where: { id } }),
+    ]);
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro desconhecido";
+    return NextResponse.json({ error: `Erro ao excluir: ${message}` }, { status: 500 });
+  }
 }
